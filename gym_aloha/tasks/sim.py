@@ -11,6 +11,7 @@ from gym_aloha.constants import (
 )
 
 BOX_POSE = [None]  # to be changed from outside
+TABLE_SIZE = [None]  # to be changed from outside
 
 """
 Environment for simulated robot bi-manual manipulation, with joint position control
@@ -215,5 +216,60 @@ class InsertionTask(BimanualViperXTask):
         if peg_touch_socket and (not peg_touch_table) and (not socket_touch_table):  # peg and socket touching
             reward = 3
         if pin_touched:  # successful insertion
+            reward = 4
+        return reward
+
+
+class PickBlockTask(BimanualViperXTask):
+    def __init__(self, random=None):
+        super().__init__(random=random)
+        self.max_reward = 4
+
+    def initialize_episode(self, physics):
+        """Sets the state of the environment at the start of each episode."""
+        # TODO Notice: this function does not randomize the env configuration. Instead, set BOX_POSE from outside
+        # reset qpos, control and box position
+        with physics.reset_context():
+            physics.named.data.qpos[:16] = START_ARM_POSE
+            np.copyto(physics.data.ctrl, START_ARM_POSE)
+            assert BOX_POSE[0] is not None
+            physics.named.data.qpos[-7:] = BOX_POSE[0]
+            # Set table size if provided
+            if TABLE_SIZE[0] is not None:
+                physics.named.model.geom_size["table"] = TABLE_SIZE[0]
+            # print(f"{BOX_POSE=}")
+        super().initialize_episode(physics)
+
+    @staticmethod
+    def get_env_state(physics):
+        env_state = physics.data.qpos.copy()[16:]
+        return env_state
+
+    def get_reward(self, physics):
+        # return reward based on picking up the box
+        all_contact_pairs = []
+        for i_contact in range(physics.data.ncon):
+            id_geom_1 = physics.data.contact[i_contact].geom1
+            id_geom_2 = physics.data.contact[i_contact].geom2
+            name_geom_1 = physics.model.id2name(id_geom_1, "geom")
+            name_geom_2 = physics.model.id2name(id_geom_2, "geom")
+            contact_pair = (name_geom_1, name_geom_2)
+            all_contact_pairs.append(contact_pair)
+
+        touch_left_gripper = ("red_box", "vx300s_left/10_left_gripper_finger") in all_contact_pairs
+        touch_right_gripper = ("red_box", "vx300s_right/10_right_gripper_finger") in all_contact_pairs
+        touch_table = ("red_box", "table") in all_contact_pairs
+
+        # Get box z-position (use body name "box", not geom name "red_box")
+        box_z = physics.named.data.xpos["box"][2]
+        # Table height is approximately 0, box should be lifted 0.1m (10cm) above
+        lifted_high_enough = box_z > 0.1
+
+        reward = 0
+        if touch_right_gripper or touch_left_gripper:
+            reward = 1
+        if (touch_right_gripper or touch_left_gripper) and not touch_table:  # lifted
+            reward = 2
+        if lifted_high_enough and not touch_table:  # lifted by 10cm
             reward = 4
         return reward

@@ -10,12 +10,12 @@ from gym_aloha.constants import (
     DT,
     JOINTS,
 )
-from gym_aloha.tasks.sim import BOX_POSE, InsertionTask, TransferCubeTask
+from gym_aloha.tasks.sim import BOX_POSE, TABLE_SIZE, InsertionTask, PickBlockTask, TransferCubeTask
 from gym_aloha.tasks.sim_end_effector import (
     InsertionEndEffectorTask,
     TransferCubeEndEffectorTask,
 )
-from gym_aloha.utils import sample_box_pose, sample_insertion_pose
+from gym_aloha.utils import sample_box_pose, sample_insertion_pose, sample_table_size
 
 
 class AlohaEnv(gym.Env):
@@ -113,6 +113,10 @@ class AlohaEnv(gym.Env):
             xml_path = ASSETS_DIR / "bimanual_viperx_transfer_cube.xml"
             physics = mujoco.Physics.from_xml_path(str(xml_path))
             task = TransferCubeTask()
+        elif task_name == "pickblock":
+            xml_path = ASSETS_DIR / "bimanual_viperx_pickblock.xml"
+            physics = mujoco.Physics.from_xml_path(str(xml_path))
+            task = PickBlockTask()
         elif task_name == "insertion":
             xml_path = ASSETS_DIR / "bimanual_viperx_insertion.xml"
             physics = mujoco.Physics.from_xml_path(str(xml_path))
@@ -158,6 +162,9 @@ class AlohaEnv(gym.Env):
         # TODO(rcadene): do not use global variable for this
         if self.task == "transfer_cube":
             BOX_POSE[0] = sample_box_pose(seed)  # used in sim reset
+        elif self.task == "pickblock":
+            BOX_POSE[0] = sample_box_pose(seed)  # used in sim reset
+            TABLE_SIZE[0] = sample_table_size(seed)  # used in sim reset
         elif self.task == "insertion":
             BOX_POSE[0] = np.concatenate(sample_insertion_pose(seed))  # used in sim reset
         else:

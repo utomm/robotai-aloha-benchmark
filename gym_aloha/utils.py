@@ -41,3 +41,13 @@ def sample_insertion_pose(seed=None):
     socket_pose = np.concatenate([socket_position, socket_quat])
 
     return peg_pose, socket_pose
+
+
+def sample_table_size(seed=None):
+    # Table size: [half_width, half_depth, half_thickness]
+    # Currently fixed, but can be randomized in the future
+    half_width = 0.7
+    half_depth = 0.5
+    thickness = 0.02
+
+    return np.array([half_width, half_depth, thickness])

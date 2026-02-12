@@ -3,11 +3,11 @@ import gymnasium as gym
 import numpy as np
 import gym_aloha
 
-env = gym.make("gym_aloha/AlohaInsertion-v0")
+env = gym.make("gym_aloha/AlohaPickBlock-v0")
 observation, info = env.reset()
 frames = []
 
-for _ in range(1000):
+for _ in range(50):
     action = env.action_space.sample()
     observation, reward, terminated, truncated, info = env.step(action)
     image = env.render()
@@ -17,4 +17,4 @@ for _ in range(1000):
         observation, info = env.reset()
 
 env.close()
-imageio.mimsave("example.mp4", np.stack(frames), fps=25)
+imageio.mimsave("example.mp4", np.stack(frames), fps=15)
