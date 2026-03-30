@@ -1,5 +1,6 @@
 import collections
 
+import mujoco
 import numpy as np
 from dm_control.suite import base
 
@@ -12,6 +13,8 @@ from gym_aloha.constants import (
 
 BOX_POSE = [None]  # to be changed from outside
 TABLE_SIZE = [None]  # to be changed from outside
+PICKBLOCK_RANDOMIZATION = [None]  # to be changed from outside
+NUM_QUAD_DISTRACTORS = 5
 
 """
 Environment for simulated robot bi-manual manipulation, with joint position control
@@ -229,14 +232,68 @@ class PickBlockTask(BimanualViperXTask):
         """Sets the state of the environment at the start of each episode."""
         # TODO Notice: this function does not randomize the env configuration. Instead, set BOX_POSE from outside
         # reset qpos, control and box position
+
+        def set_free_joint_qpos(joint_name, pose):
+            joint_id = physics.model.name2id(joint_name, "joint")
+            qpos_adr = physics.model.jnt_qposadr[joint_id]
+            physics.data.qpos[qpos_adr : qpos_adr + 7] = pose
+
+        def set_quad_mesh_vertices(mesh_name, corners, thickness):
+            mesh_id = mujoco.mj_name2id(physics.model.ptr, mujoco.mjtObj.mjOBJ_MESH, mesh_name)
+            vert_start = physics.model.ptr.mesh_vertadr[mesh_id]
+            vert_num = physics.model.ptr.mesh_vertnum[mesh_id]
+
+            half_t = thickness / 2.0
+            bottom = corners.copy()
+            top = corners.copy()
+            bottom[:, 2] = -half_t
+            top[:, 2] = half_t
+            prism_vertices = np.vstack([bottom, top])
+
+            physics.model.ptr.mesh_vert[vert_start : vert_start + vert_num] = prism_vertices
+
         with physics.reset_context():
             physics.named.data.qpos[:16] = START_ARM_POSE
             np.copyto(physics.data.ctrl, START_ARM_POSE)
+
             assert BOX_POSE[0] is not None
-            physics.named.data.qpos[-7:] = BOX_POSE[0]
+            set_free_joint_qpos("red_box_joint", BOX_POSE[0])
+
             # Set table size if provided
             if TABLE_SIZE[0] is not None:
                 physics.named.model.geom_size["table"] = TABLE_SIZE[0]
+
+            randomization = PICKBLOCK_RANDOMIZATION[0]
+            if randomization is not None:
+                physics.named.model.geom_rgba["red_box"] = randomization["cube_rgba"]
+                physics.named.model.geom_rgba["table"] = randomization["table_rgba"]
+
+                physics.named.model.geom_size["red_box"] = randomization["cube_half_size"]
+                physics.named.model.body_mass["box"] = randomization["cube_mass"]
+                physics.named.model.body_inertia["box"] = randomization["cube_inertia"]
+
+                for idx in range(NUM_QUAD_DISTRACTORS):
+                    joint_name = f"distractor_quad_joint_{idx}"
+                    geom_name = f"distractor_quad_{idx}"
+                    mesh_name = f"quad_mesh_{idx}"
+                    physics.named.model.geom_rgba[geom_name] = randomization["quad_distractor_rgba"][idx]
+
+                    is_active = bool(randomization["quad_distractor_active"][idx])
+                    physics.named.model.geom_contype[geom_name] = 1 if is_active else 0
+                    physics.named.model.geom_conaffinity[geom_name] = 1 if is_active else 0
+
+                    set_quad_mesh_vertices(
+                        mesh_name,
+                        randomization["quad_distractor_vertices"][idx],
+                        randomization["quad_distractor_thickness"][idx],
+                    )
+
+                mujoco.mj_setConst(physics.model.ptr, physics.data.ptr)
+
+                set_free_joint_qpos("red_box_joint", randomization["box_pose"])
+                for idx in range(NUM_QUAD_DISTRACTORS):
+                    joint_name = f"distractor_quad_joint_{idx}"
+                    set_free_joint_qpos(joint_name, randomization["quad_distractor_poses"][idx])
             # print(f"{BOX_POSE=}")
         super().initialize_episode(physics)
 

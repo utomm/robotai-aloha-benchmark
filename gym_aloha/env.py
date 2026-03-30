@@ -10,12 +10,24 @@ from gym_aloha.constants import (
     DT,
     JOINTS,
 )
-from gym_aloha.tasks.sim import BOX_POSE, TABLE_SIZE, InsertionTask, PickBlockTask, TransferCubeTask
+from gym_aloha.tasks.sim import (
+    BOX_POSE,
+    PICKBLOCK_RANDOMIZATION,
+    TABLE_SIZE,
+    InsertionTask,
+    PickBlockTask,
+    TransferCubeTask,
+)
 from gym_aloha.tasks.sim_end_effector import (
     InsertionEndEffectorTask,
     TransferCubeEndEffectorTask,
 )
-from gym_aloha.utils import sample_box_pose, sample_insertion_pose, sample_table_size
+from gym_aloha.utils import (
+    sample_box_pose,
+    sample_insertion_pose,
+    sample_pickblock_episode,
+    sample_table_size,
+)
 
 
 class AlohaEnv(gym.Env):
@@ -160,11 +172,14 @@ class AlohaEnv(gym.Env):
             self._env.task._random = np.random.RandomState(seed)
 
         # TODO(rcadene): do not use global variable for this
+        PICKBLOCK_RANDOMIZATION[0] = None
         if self.task == "transfer_cube":
             BOX_POSE[0] = sample_box_pose(seed)  # used in sim reset
         elif self.task == "pickblock":
-            BOX_POSE[0] = sample_box_pose(seed)  # used in sim reset
-            TABLE_SIZE[0] = sample_table_size(seed)  # used in sim reset
+            randomization = sample_pickblock_episode(seed)
+            BOX_POSE[0] = randomization["box_pose"]  # used in sim reset
+            TABLE_SIZE[0] = randomization["table_size"]  # used in sim reset
+            PICKBLOCK_RANDOMIZATION[0] = randomization  # used in sim reset
         elif self.task == "insertion":
             BOX_POSE[0] = np.concatenate(sample_insertion_pose(seed))  # used in sim reset
         else:
