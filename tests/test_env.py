@@ -11,6 +11,8 @@ import gym_aloha  # noqa: F401
         # ("AlohaInsertion-v0", "state"),
         ("AlohaInsertion-v0", "pixels"),
         ("AlohaInsertion-v0", "pixels_agent_pos"),
+        ("AlohaPickBlock-v0", "pixels"),
+        ("AlohaPickBlock-v0", "pixels_agent_pos"),
         ("AlohaTransferCube-v0", "pixels"),
         ("AlohaTransferCube-v0", "pixels_agent_pos"),
     ],
