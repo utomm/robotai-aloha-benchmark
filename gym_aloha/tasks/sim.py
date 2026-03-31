@@ -290,6 +290,9 @@ class PickBlockTask(BimanualViperXTask):
 
                 mujoco.mj_setConst(physics.model.ptr, physics.data.ptr)
 
+                physics.named.data.qpos[:16] = START_ARM_POSE
+                np.copyto(physics.data.ctrl, START_ARM_POSE)
+
                 set_free_joint_qpos("red_box_joint", randomization["box_pose"])
                 for idx in range(NUM_QUAD_DISTRACTORS):
                     joint_name = f"distractor_quad_joint_{idx}"
